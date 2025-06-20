@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from typing import Optional
 from pydantic import BaseModel
 from app.handlers.init import handle_init
+from app.services.gpt import classify_state
 
 app = FastAPI(title="Gashu Server API")
 
@@ -15,7 +16,7 @@ class Message(BaseModel):
 def initialize_user(msg: Message):
     print("Initializing user state...")
     print("controll by handlers.init => handle_init")
-    return handle_init(msg.user_id, msg.message, msg.lon, msg.lat)
+    return handle_init(msg.user_id, msg.user_message, msg.user_lon, msg.user_lat)
 
 @app.post("/message")
 def handle_message(msg: Message):
@@ -23,4 +24,4 @@ def handle_message(msg: Message):
 
 @app.post("/test")
 def test_endpoint(msg: Message):
-    return 0
+    return classify_state(msg.user_id, msg.user_message)

@@ -1,41 +1,40 @@
 from app.services.redis_session import delete_session, init_session, get_session, update_session
 
-import openai
+from openai import OpenAI
+import os
+import json
+
 from dotenv import load_dotenv
 load_dotenv()
 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def extract_locations_from_text(user_id: str, user_message: str) -> dict:
+def classify_state(user_id: str, user_message: str) -> dict:
     session = get_session(user_id)
-
-    system_prompt = """
-너는 대화의 흐름을 이해하고 사용자의 입력에서 출발지와 목적지를 추출해서 JSON 형태로 반환하는 도우미야.
-    출발지와 목적지는 대화의 흐름에 따라 사용자가 언급한 장소를 의미해.
-    만약 사용자가 출발지나 목적지를 언급하지 않았다면, 해당 값은 null로 설정해줘.
-    예를 들어, 사용자가 "청주에서 청주대까지 가는 버스를 알려줘"라고 말하면,
-    출발지는 "청주", 목적지는 "청주대"가 될 거야.
-    만약 사용자가 "청주에서 어디로 가야할지 모르겠어"
-    라고 말하면, 출발지는 "청주", 목적지는 null이 될 거야.
-    """.strip()
     prompt = f"""
-사용자와의 대화 기록을 통해 대화의 흐름과 사용자의 의도를 파악해 현재 상태를 주어진 상태 중 하나로 분류하고, 
+사용자와의 대화 기록을 통해 대화의 흐름과 사용자의 의도를 파악해 진행해야 할 상태를 주어진 상태 중 하나로 분류하고, 
 사용자 메시지에서 출발지와 목적지를 찾아 반환해줘. 문장에 출발지나 목적지가 없으면 null로 설정해.
-반환 형식은 다음과 같은 JSON 형식이어야 해.
+반환 형식은 반드시 다음과 같은 JSON만 포함해야 하고, 문자열이 아닌 JSON 객체 자체로 시작하고 끝나야 해.
+추가적인 설명, 주석, 코드 블럭(```) 없이 딱 JSON만 출력해.
 
-대화 기록: {session.get("message_history", [])}
+대화 기록: {session.get("message_history", [
+    {"role": "user", "content": "710번 언제와"},
+    {"role": "assistant", "content": "710번 버스는 5분 10초 뒤에 옵니다."},
+])}
 사용자 메시지: "{user_message}"
 
 출력 형식:
 {{
-    "state": "set_dest" 또는 "set_dep" 또는 "init" 또는 "main",
-    "departure": "출발지명 또는 null",
-    "destination": "목적지명 또는 null"
+    "state": "목적지를 설정 또는 수정한다면 'set_dest", 출발지를 설정 또는 수정한다면 "set_dep", 나머지의 경우 "main",
+    "sub_state": "state가 set_dest 또는 set_dep인 경우에 dep이나 dest가 채워졌다면 'search', 아니면'main'",
+    "dep": "출발지명 또는 null",
+    "dest": "목적지명 또는 null"
 }}
     """.strip()
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        response = client.chat.completions.create(
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "너는 대화의 흐름을 이해하고 사용자의 입력에서 출발지와 목적지를 추출해서 JSON 형태로 반환하는 도우미야."},
                 {"role": "user", "content": prompt}
@@ -43,9 +42,14 @@ def extract_locations_from_text(user_id: str, user_message: str) -> dict:
             temperature=0.0,
         )
 
-        # 응답에서 JSON 파싱
-        content = response["choices"][0]["message"]["content"]
-        result = eval(content) if isinstance(content, str) else content
+        content = response.choices[0].message.content
+        print(f"GPT 응답: {content}")
+        
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            print("❌ JSON 파싱 실패")
+            result = {"state": "main", "sub_state": "main", "dep": None, "dest": None}
         return result
 
     except Exception as e:

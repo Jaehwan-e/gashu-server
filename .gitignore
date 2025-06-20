@@ -5,4 +5,6 @@ __pycache__/
 
 # config files
 .env
-.venv/
+
+# virtual environment
+venv/

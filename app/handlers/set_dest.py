@@ -1,4 +1,3 @@
-from app.states import STATE_MODIFY_SRC, STATE_MAIN
 import redis
 
 r = redis.Redis(decode_responses=True)

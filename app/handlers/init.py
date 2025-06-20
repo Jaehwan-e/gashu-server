@@ -25,7 +25,7 @@ def handle_init(user_id, user_message, user_lon=127.43168, user_lat=36.62544):
     session["sub_state"] = "main"
 
     # 초기화 메시지
-    message = f'안녕하세요. 오늘은 어디에 가시겠어요? 전에는 {", ".join(dest_history)}에 갔어요'
+    message = f'안녕하세요. 오늘은 어디에 가시겠어요? 이전에는 {", ".join(dest_history)}에 갔어요'
     # --------------------------------참고 후 삭제--------------------------------------
     # 사용자 메시지 추가  
     session["history_set_dest_step"] = session.get("history_set_dest_step", []) + [{"role": "user", "content": message}]
