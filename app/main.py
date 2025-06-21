@@ -22,6 +22,23 @@ def initialize_user(msg: Message):
 def handle_message(msg: Message):
     return {}
 
-@app.post("/test")
+@app.post("/test/function")
 def test_endpoint(msg: Message):
     return classify_state(msg.user_id, msg.user_message)
+
+
+@app.post("/test/set_dest")
+def test_session(msg: Message):
+    from app.handlers.set_dest import handle_set_dest
+    return handle_set_dest(msg.user_id, msg.user_message)
+
+
+@app.post("/test/session")
+def test_session(msg: Message):
+    from app.services.redis_session import get_session
+    return get_session(msg.user_id)
+
+@app.post("/test/main")
+def test_main(msg: Message):
+    from app.handlers.main import handle_main
+    return handle_main(msg.user_id, msg.user_message)

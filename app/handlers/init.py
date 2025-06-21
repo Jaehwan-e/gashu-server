@@ -27,13 +27,12 @@ def handle_init(user_id, user_message, user_lon=127.43168, user_lat=36.62544):
     # 초기화 메시지
     message = f'안녕하세요. 오늘은 어디에 가시겠어요? 이전에는 {", ".join(dest_history)}에 갔어요'
     # --------------------------------참고 후 삭제--------------------------------------
-    # 사용자 메시지 추가  
-    session["history_set_dest_step"] = session.get("history_set_dest_step", []) + [{"role": "user", "content": message}]
+    # assistant 메시지 히스토리에 추가 
+    session["history_set_dest_step"] = session.get("history_set_dest_step", []) + [{"role": "assistant", "content": message}]
+    session["message_history"] = session.get("message_history", []) + [{"role": "assistant", "content": message}]
     #-------------------------------------------------------------------------------------
 
     # 세션 갱신
-    print('Updating session with user history and GPS location...')
-    print(session)
     update_session(user_id, session)
 
     # 반환

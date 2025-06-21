@@ -11,7 +11,7 @@ redis_client = redis.Redis(
 )
 
 # TTL 설정
-SESSION_TTL = 60 * 60
+SESSION_TTL = 60 * 60 * 24 * 7
 
 # 세션 키 생성 함수
 def get_session_key(session_id: str) -> str:
@@ -24,10 +24,18 @@ def init_session(session_id: str) -> dict:
     
     session_slots = {
         "state": None,
-        "sub_state": None,
+        "sub_state": "main",
         "route": None,
-        "cache_dep": None,
-        "cache_dest": None,
+        "requires_dest_search": False,
+        "requires_dep_search": False,
+        "requires_dest_coord": False,
+        "requires_dep_coord": False,
+        "dest_address": None,
+        "dep_address": None,
+        "requested_dep": None,
+        "requested_dest": None,
+        "dep_search_results": None,
+        "dest_search_results": None,
         "dest_name": None,
         "dest_coord": None,
         "dep_name": None,
@@ -54,14 +62,6 @@ def get_session(session_id: str) -> Optional[dict]:
     return json.loads(data) if data else None
 
 
-# 세션을 가져오거나 생성하는 함수
-def get_or_create_session(session_id: str) -> dict:
-    session = get_session(session_id)
-    if session is not None:
-        return session
-    return init_session(session_id)
-
-
 # 세션 업데이트 함수
 def update_session(session_id: str, session_data: dict):
     key = get_session_key(session_id)
@@ -85,7 +85,7 @@ def get_slot(session_id: str, key: str) -> Optional[Any]:
 
 # 슬롯 설정 함수
 def set_slot(session_id: str, key: str, value: Any):
-    session = get_or_create_session(session_id)
+    session = get_session(session_id)
     session[key] = value
     update_session(session_id, session)
 

@@ -1,60 +1,133 @@
-import redis
-
-r = redis.Redis(decode_responses=True)
-
-def handle_set_dest(user_id, user_input):
-    r.set(f"user:{user_id}:dest", user_input)
-
-    src = r.get(f"user:{user_id}:src")
-    if not src:
-        r.set(f"user:{user_id}:state", STATE_MODIFY_SRC)
-        return f"좋습니다. '{user_input}'로 가는 길을 안내해드릴게요.\n출발지를 알려주세요."
-
-    r.set(f"user:{user_id}:state", STATE_MAIN)
-    return "경로를 계산 중입니다..."
-
-
-# handlers/add_destination.py
-
 import json
-from openai import ChatCompletion
-from app.services.redis_session import set_user_destination
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+from app.services.redis_session import delete_session, init_session, get_session, update_session, get_slot, set_slot
 
-def handle_set_dest(user_id: str, message: str) -> str:
-    """
-    목적지를 설정하는 핸들러.
-    사용자 메시지에서 목적지를 추출하고, 좌표와 함께 세션에 저장한 뒤 사용자에게 확인 질문을 반환.
-    LLM 호출과 응답 처리까지 모두 포함한다.
-    """
-    # 1. LLM 프롬프트 구성
-    prompt = f"""
-너는 버스 경로 안내 시스템의 목적지 추출 도우미야.
-다음 사용자 메시지에서 '도착지'를 한 단어로 명확히 정리해줘.
-예를 들어 "서울역에 가고 싶어요" → "서울역"
-응답은 반드시 JSON 형식으로 해줘: {{ "place_name": "서울역" }}
-사용자 메시지: "{message}"
-"""
+from app.handlers.set_dep import handle_set_dep
+from app.services.apis import search_address_by_keyword, geocode_address
 
-    # 2. GPT 호출
-    try:
-        response = ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.3
-        )
-        content = response.choices[0].message.content
-        destination = json.loads(content)  # JSON 응답 파싱
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    except Exception as e:
-        return "죄송해요, 목적지를 파악하는 데 문제가 생겼어요. 다시 시도해 주세요."
 
-    # 3. 목적지 유효성 확인
-    if not destination or "place_name" not in destination:
-        return "죄송해요, 목적지를 잘 이해하지 못했어요. 다시 말씀해 주시겠어요?"
+SYSTEM_PROMPT = "너는 대화의 흐름을 이해하고 사용자의 입력에서 출발지와 목적지를 추출해서 JSON 형태로 반환하는 도우미야."
 
-    # 4. Redis에 저장
-    set_user_destination(user_id, destination)
 
-    # 5. 사용자 응답
-    place_name = destination["place_name"]
-    return f"{place_name}(으)로 가는 경로를 안내해 드릴까요?"
+def update_user_history(user_id, message):
+    """히스토리 업데이트 헬퍼 함수"""
+    for key in ["message_history", "history_set_dest_step"]:
+        history = get_slot(user_id, key)
+        history.append({"role": "assistant", "content": message})
+        set_slot(user_id, key, history)
+
+
+def build_prompt(user_message, dest_results):
+    """프롬프트 구성 함수"""
+    return f"""
+사용자와의 자연스러운 대화를 통해 목적지를 설정하는 단계에서
+주어진 목적지 검색 결과가 있다면 참고해 사용자와의 대화를 통해 원하는 하나의 목적지를 결정해 반환해야 해.
+사용자에게 대화 형식의 자연스러운 응답을 생성해.
+반환 형식은 반드시 다음과 같은 JSON만 포함해야 하고, 문자열이 아닌 JSON 객체 자체로 시작하고 끝나야 해.
+추가적인 설명, 주석, 코드 블럭 없이 딱 JSON만 출력해.
+
+사용자 메시지: "{user_message}"
+목적지 검색 결과: {dest_results}
+
+출력 형식:
+{{
+    "message": "사용자에게 보여줄 메시지",
+    "dest": "사용자가 선택한 목적지명 또는 null",
+    "dest_address": "사용자가 선택한 목적지 주소 또는 null"
+}}""".strip()
+
+
+def handle_set_dest(user_id: str, user_message: str) -> str:
+    set_slot(user_id, "history_set_dest_step", get_slot(user_id, "history_set_dest_step") + [{"role": "user", "content": user_message}])
+
+    while get_slot(user_id, "state") == "set_dest":
+        sub_state = get_slot(user_id, "sub_state")
+        session = get_session(user_id)
+
+        if sub_state == "main":
+            prompt = build_prompt(user_message, session.get("dest_search_results", []))
+
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0,
+                )
+                content = response.choices[0].message.content
+                print(f"GPT 응답: {content}")
+
+                try:
+                    result = json.loads(content)
+                except json.JSONDecodeError:
+                    print("JSON 파싱 실패")
+                    result = {"message": "죄송해요, 다시 한 번 말씀해 주세요.", "dest": None, "dest_address": None}
+
+                update_user_history(user_id, result["message"])
+
+                if result["dest"] and result["dest_address"]:
+                    set_slot(user_id, "dest_name", result["dest"])
+                    set_slot(user_id, "dest_address", result["dest_address"])
+                    set_slot(user_id, "sub_state", "coord")
+                    continue  # 좌표 변환 단계로
+
+                return {"message": result["message"]}
+
+            except Exception as e:
+                print(f"GPT 호출 중 에러: {e}")
+                return {"message": "죄송해요, 내부 오류가 발생했어요."}
+
+        elif sub_state == "search":
+            # 결과가 없다면 검색 시도
+            requested_dest = get_slot(user_id, "requested_dest")
+            search_result = search_address_by_keyword(requested_dest)
+
+            if not search_result:
+                message = "죄송해요, 해당 목적지를 찾을 수 없어요. 다른 장소나 주소를 말씀해 주세요."
+                update_user_history(user_id, message)
+                set_slot(user_id, "sub_state", "main")
+                return {"message": message}
+
+            set_slot(user_id, "dest_search_results", search_result)
+
+            if search_result:
+                if len(search_result) == 1:
+                    result = search_result[0]
+                    message = f"검색된 목적지는 '{result['name']}' ({result['address']})입니다. 이 주소가 맞나요?"
+                else:
+                    message = "여러 개의 목적지가 검색되었어요. 원하는 목적지를 선택해 주세요:\n"
+                    message += "\n".join(
+                        f"{idx+1}번. {r['name']} ({r['address']})" for idx, r in enumerate(search_result)
+                    )
+                
+                update_user_history(user_id, message)
+                return {"message": message}
+
+
+        elif sub_state == "coord":
+            # 좌표 변환 단계
+            dest_address = get_slot(user_id, "dest_address")
+            if dest_address:
+                coord = geocode_address(dest_address)
+                if coord:
+                    set_slot(user_id, "dest_coord", coord)
+                    set_slot(user_id, "state", "set_dep")
+                    set_slot(user_id, "sub_state", "main")
+                    continue
+                else:
+                    message = "좌표를 찾을 수 없어요. 주소를 다시 확인해 주세요."
+                    update_user_history(user_id, message)
+                    return {"message": message}
+            else:
+                print("좌표 변환 단계에서 주소가 없습니다.")
+                set_slot(user_id, "state", "error")
+
+    # 목적지 설정 완료 후 출발지 단계로
+    return handle_set_dep(user_id, user_message)
