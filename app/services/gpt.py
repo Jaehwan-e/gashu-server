@@ -25,8 +25,9 @@ def classify_state(user_id: str, user_message: str) -> dict:
 3. assistant가 출발지/목적지의 **선택지를 제공하거나 확인을 요청했고**, 사용자 메시지가 **제공한 내용 중에 응답하는 형태(선택/확인)**라면,
    - 출발지인 경우: "requires_dep_coord": true
    - 목적지인 경우: "requires_dest_coord": true
-4. 사용자의 메시지가 **버스 정보 안내와 무관한 일반적인 발화**(예: 잡담, 다른 주제)라면 "error": true로 설정해. 
-   그 외에는 false로 설정해.
+4. assistant가 제공한 출발지/목적지를 선택/확인한 경우 그 주소를 dep_adress/dest_address에 설정.
+5. 사용자의 메시지가 **버스 정보 안내와 무관한 일반적인 발화**(예: 잡담, 다른 주제)라면 "error": true로 설정해. 
+그 외에는 false로 설정해.
 
 아래 JSON 형식 외의 **어떠한 설명, 주석, 코드블럭(예: ```)도 포함하지 마.** 반드시 JSON 객체로 시작하고 끝나야 해.
 
@@ -36,7 +37,9 @@ def classify_state(user_id: str, user_message: str) -> dict:
 {{
   "state": "set_dest" 또는 "set_dep" 또는 "main" 또는 "error",
   "dep": "출발지명 또는 null",
+  "dep_address": "출발지 주소 또는 null",
   "dest": "목적지명 또는 null",
+  "dest_address": "목적지 주소 또는 null",
   "requires_dep_coord": true 또는 false,
   "requires_dest_coord": true 또는 false,
   "error": true 또는 false
@@ -75,6 +78,7 @@ def classify_state(user_id: str, user_message: str) -> dict:
             session["state"] = "set_dep"
             session["sub_state"] = "search"
             if result.get("requires_dep_coord", False):
+                session["dep_address"] = result.get("dep_address", None)
                 session["requires_dep_coord"] = True
                 session["sub_state"] = "coord"
         if result.get("dest", False):
@@ -82,6 +86,7 @@ def classify_state(user_id: str, user_message: str) -> dict:
             session["state"] = "set_dest"
             session["sub_state"] = "search"
             if result.get("requires_dest_coord", False):
+                session["dest_address"] = result.get("dest_address", None)
                 session["requires_dest_coord"] = True
                 session["sub_state"] = "coord"
         if result.get("error", False):

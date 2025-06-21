@@ -53,16 +53,21 @@ def handle_set_dest(user_id: str, user_message: str) -> str:
             prompt = build_prompt(user_message, session.get("dest_search_results", []))
 
             try:
+                messages = (
+                    [{"role": "system", "content": SYSTEM_PROMPT}]
+                    + session.get("message_history", [])
+                    + [{"role": "user", "content": prompt}]
+                )
+                session["message_history"] = session.get("message_history", []) + [{"role": "user", "content": user_message}]
+                update_session(user_id, session)
+
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=messages,
                     temperature=0.0,
                 )
                 content = response.choices[0].message.content
-                print(f"GPT 응답: {content}")
+                print(f"set_dest에서 GPT 응답: {content}")
 
                 try:
                     result = json.loads(content)
@@ -119,8 +124,15 @@ def handle_set_dest(user_id: str, user_message: str) -> str:
                 if coord:
                     set_slot(user_id, "dest_coord", coord)
                     set_slot(user_id, "state", "set_dep")
-                    set_slot(user_id, "sub_state", "main")
-                    continue
+
+                    if get_slot(user_id, "requested_dep"):
+                        set_slot(user_id, "sub_state", "search")
+                    else:
+                        message = "현재 위치에서 출발하시겠어요? 아니면 출발지를 알려주세요"
+                        set_slot(user_id, "history_set_dep_step", get_slot(user_id, "history_set_dep_step") + [{"role": "assistant", "content": message}])
+                        set_slot(user_id, "message_history", get_slot(user_id, "message_history") + [{"role": "assistant", "content": message}])
+                        return {"message": message}
+
                 else:
                     message = "좌표를 찾을 수 없어요. 주소를 다시 확인해 주세요."
                     update_user_history(user_id, message)
@@ -130,4 +142,4 @@ def handle_set_dest(user_id: str, user_message: str) -> str:
                 set_slot(user_id, "state", "error")
 
     # 목적지 설정 완료 후 출발지 단계로
-    return handle_set_dep(user_id, user_message)
+    return {"message": "set_dest 함수 비정상 종료: 목적지 설정이 완료되지 않았습니다."}
