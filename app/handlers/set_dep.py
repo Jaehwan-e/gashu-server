@@ -86,6 +86,13 @@ def handle_set_dep(user_id: str, user_message: str) -> dict:
 
         elif sub_state == "search":
             requested_dep = get_slot(user_id, "requested_dep")
+            if requested_dep == "현재 위치":
+                # 현재 위치에서 출발하는 경우
+                coord = get_slot(user_id, "user_gps")
+                if coord:
+                    set_slot(user_id, "dep_coord", coord)
+                    continue
+                
             search_result = search_address_by_keyword(requested_dep)
 
             if not search_result:
@@ -116,13 +123,16 @@ def handle_set_dep(user_id: str, user_message: str) -> dict:
                     set_slot(user_id, "dep_coord", coord)
                     set_slot(user_id, "state", "main")
                     set_slot(user_id, "sub_state", "main")
+                    set_slot(user_id, "enable_main", True)
+                    import app.handlers.main as main_handler
+                    return main_handler.handle_main(user_id, user_message)
                     
                 else:
-                    message = "좌표를 찾을 수 없어요. 주소를 다시 확인해 주세요."
+                    message = "좌표를 찾을 수 없어요. 출발지를 다시 알려주세요."
                     update_user_history(user_id, message)
                     return {"message": message}
             else:
-                print("좌표 변환 단계에서 주소가 없습니다.")
+                print("출발지 주소가 없습니다. 출발지를 알려주세요.")
                 set_slot(user_id, "state", "error")
 
     return {"message": "set_dep 함수 비정상 종료: 출발지 설정이 완료되지 않았습니다."}

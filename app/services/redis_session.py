@@ -24,7 +24,8 @@ def init_session(session_id: str) -> dict:
     
     session_slots = {
         "state": None,
-        "sub_state": "main",
+        "sub_state": "search",
+        "can_enter_main": False,
         "route": None,
         "requires_dest_search": False,
         "requires_dep_search": False,
@@ -48,7 +49,7 @@ def init_session(session_id: str) -> dict:
         "history_dest": [],
         "history_dep": [],
         "error_flag": False,
-        "bus": {},
+        "bus": [],
     }
 
     redis_client.set(key, json.dumps(session_slots), ex=SESSION_TTL)

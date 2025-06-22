@@ -47,22 +47,41 @@ def geocode_address(address: str) -> tuple:
 
 def search_address_by_keyword(keyword: str) -> list:
     """
-    키워드로 주소 후보 목록 검색
-    반환값: 주소 리스트
+    키워드로 주소 후보 목록 검색 (카카오 API 사용)
+    반환값: [{'name': 장소명, 'address': 전체주소}, ...]
     """
-    API_URL = "https://api.example.com/search_address"
-    API_KEY = os.getenv("KAKAO_API_KEY")
-
-    params = {
-    }
-    if keyword == '집':
+    if not keyword:
         return []
 
-    return [
-        {"name": "Sample Place", "address": "123 Sample St, City, Country"},
-        {"name": "Another Place", "address": "456 Another Rd, City, Country"}
-    ]
+    API_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+    API_KEY = os.getenv("KAKAO_API_KEY")
 
+    headers = {
+        "Authorization": f"KakaoAK {API_KEY}"
+    }
+
+    params = {
+        "query": keyword,
+        "size": 1
+    }
+
+    try:
+        response = requests.get(API_URL, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        result = []
+        for doc in data.get("documents", []):
+            result.append({
+                "name": doc.get("place_name"),
+                "address": doc.get("road_address_name") or doc.get("address_name")
+            })
+
+        return result
+
+    except Exception as e:
+        print("주소 검색 오류:", e)
+        return []
 
 
 def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
@@ -196,17 +215,58 @@ def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
         return []
 
 
-def fetch_realtime_bus_info(route_id: str) -> list:
+def fetch_realtime_bus_info(node_id: str, route_id: str) -> list:
     """
     버스 노선 ID 기준 실시간 위치, 도착 정보 조회
-    반환값: 버스 위치, 도착 시간 등
+    반환값: 각 도착 예정 버스 정보 리스트
+           [
+             {
+                "routeno": "105",
+                "nodenm": "복대가경시장",
+                "arrprevstationcnt": 12,
+                "arrtime": 798
+             },
+             ...
+           ]
     """
-    API_URL = "https://api.example.com/realtime_bus"
-    API_KEY = os.getenv("BUS_SERVICE_KEY")
+    API_URL = "http://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList"
 
     params = {
-        
+        'serviceKey' : os.getenv("DATA_GO_KEY"), 
+        'pageNo': '1', 
+        'numOfRows': '10', 
+        '_type': 'json', 
+        'cityCode': '33010', 
+        'nodeId': node_id,
+        'routeId': route_id
     }
 
-    return []
+    try:
+        response = requests.get(API_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("response", {}).get("header", {}).get("resultCode") != "00":
+            print("❌ API 응답 오류:", data)
+            return []
+
+        items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+        if not items:
+            print("❌ 해당 노선의 버스 정보가 없습니다.")
+            return []
+
+        result = []
+        for item in items:
+            result.append({
+                "routeno": str(item.get("routeno")),
+                "nodenm": item.get("nodenm"),
+                "arrprevstationcnt": item.get("arrprevstationcnt"),
+                "arrtime": item.get("arrtime")
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 실시간 버스 정보 조회 실패: {e}")
+        return []
 

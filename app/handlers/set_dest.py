@@ -109,7 +109,7 @@ def handle_set_dest(user_id: str, user_message: str) -> str:
                 else:
                     message = "여러 개의 목적지가 검색되었어요. 원하는 목적지를 선택해 주세요:\n"
                     message += "\n".join(
-                        f"{idx+1}번. {r['name']} ({r['address']})" for idx, r in enumerate(search_result)
+                        f"{idx+1}번. {r['name']}" for idx, r in enumerate(search_result)
                     )
                 
                 update_user_history(user_id, message)
@@ -134,11 +134,11 @@ def handle_set_dest(user_id: str, user_message: str) -> str:
                         return {"message": message}
 
                 else:
-                    message = "좌표를 찾을 수 없어요. 주소를 다시 확인해 주세요."
+                    message = "좌표를 찾을 수 없어요. 목적지를 다시 알려주세요."
                     update_user_history(user_id, message)
                     return {"message": message}
             else:
-                print("좌표 변환 단계에서 주소가 없습니다.")
+                print("목적지 주소가 없습니다. 목적지를 알려주세요.")
                 set_slot(user_id, "state", "error")
 
     # 목적지 설정 완료 후 출발지 단계로
