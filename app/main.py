@@ -40,5 +40,5 @@ def test_session(msg: Message):
 
 @app.post("/test/main")
 def test_main(msg: Message):
-    from app.handlers.main import handle_main
-    return handle_main(msg.user_id, msg.user_message)
+    from app.handlers.main import main
+    return main(msg.user_id, msg.user_message)

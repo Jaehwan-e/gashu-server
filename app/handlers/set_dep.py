@@ -116,7 +116,7 @@ def handle_set_dep(user_id: str, user_message: str) -> dict:
                     set_slot(user_id, "dep_coord", coord)
                     set_slot(user_id, "state", "main")
                     set_slot(user_id, "sub_state", "main")
-                    return {"message": "출발지 설정이 완료되었습니다. 이제 버스 정보를 안내해드릴게요."}
+                    
                 else:
                     message = "좌표를 찾을 수 없어요. 주소를 다시 확인해 주세요."
                     update_user_history(user_id, message)
