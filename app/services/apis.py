@@ -181,7 +181,7 @@ def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
     """
     url = "https://apis.openapi.sk.com/transit/routes/"
 
-    now = datetime.now()+timedelta(minutes=5)
+    now = datetime.now()
     search_dttm = now.strftime("%Y%m%d%H%M")  # 현재 시각을 'YYYYMMDDHHMM' 형식으로
 
     payload = {

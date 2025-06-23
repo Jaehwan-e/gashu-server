@@ -1,23 +1,19 @@
 from app.services.apis import fetch_bus_directions, search_address_by_keyword, geocode_address,fetch_realtime_bus_info, fetch_realtime_node_info
 
 dep_coord = (127.443867, 36.630563)  # 출발지 좌표
-dest_coord = (127.487748, 36.636707)  # 목적지 좌표
+dest_coord = (127.491279556299, 36.6369449145635)  # 목적지 좌표
 
-# directions = fetch_bus_directions(dep_coord, dest_coord)
-# print(directions)
-
-# keyword="충북대 도서관"
-# keyword_result = search_address_by_keyword(keyword)
-# print(keyword_result)
+directions = fetch_bus_directions(dep_coord, dest_coord)
+print(directions)
 
 # address = "충북 청주시 서원구 개신동 12"
 # coord = geocode_address(address)
 # print(coord)
 
-node_id = "CJB271000130"
-route_id = "CJB270016200"
-realtime_info = fetch_realtime_node_info(node_id)
-print(realtime_info)
+# node_id = "CJB271000130"
+# route_id = "CJB270016200"
+# realtime_info = fetch_realtime_node_info(node_id)
+# print(realtime_info)
 
 
 # import os

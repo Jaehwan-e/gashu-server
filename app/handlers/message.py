@@ -31,7 +31,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "사용자 요청의 타입을 분류하고, 메시지에서 목적지를 추출해 JSON 형식으로 반환하는 도우미야."},
                 {"role": "user", "content": prompt}
@@ -89,7 +89,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
                 {"role": "user", "content": specific_bus_info_prompt}
             ]
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=messages,
                 temperature=0.0,
             )
@@ -99,7 +99,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
             result = json.loads(content)
             routeid = result.get("routeid", None)
             nodeid = result.get("start_nodeid", None)
-            if not routeid or not nodeid:
+            if not nodeid:
                 message = f"죄송해요, {searched_dest[0].get('name')}에 가는 {bus_no}번 버스의 노선 정보를 찾을 수 없어요. 다시 시도해주세요."
                 return {"message": message}
             print(f"추출된 버스 노선 아이디: {routeid}, 시작 정류장 아이디: {nodeid}")
@@ -133,7 +133,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
                 {"role": "user", "content": realtime_bus_info_prompt}
             ]
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=messages,
                 temperature=0.0,
             )
@@ -169,7 +169,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
                 {"role": "user", "content": general_bus_info_prompt}
             ]
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-3.5-turbo",
                 messages=messages,
                 temperature=0.0,
             )
