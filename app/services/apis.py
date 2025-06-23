@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from dotenv import load_dotenv
 load_dotenv()
@@ -74,7 +74,9 @@ def search_address_by_keyword(keyword: str) -> list:
         for doc in data.get("documents", []):
             result.append({
                 "name": doc.get("place_name"),
-                "address": doc.get("road_address_name") or doc.get("address_name")
+                "address": doc.get("road_address_name") or doc.get("address_name"),
+                "lon": float(doc.get("x")),
+                "lat": float(doc.get("y"))
             })
 
         return result
@@ -135,7 +137,9 @@ def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
                         })
 
                     elif mode == "BUS":
-                        route_name = leg.get("route", "알 수 없음")
+                        route_name_full = leg.get("route", "알 수 없음")
+                        route_name = route_name_full.split(":")[-1]  # '간선:710' → '710'
+
                         station_list = leg.get("passStopList", {}).get("stationList", [])
                         if not station_list:
                             continue
@@ -158,7 +162,7 @@ def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
 
                 results.append({
                     "total_time": total_time_min,
-                    "fare": fare,
+                    # "fare": fare,
                     "transfer_count": transfer_count,
                     "total_walk_time": total_walk_time_min,
                     "bus_routes": bus_routes,
@@ -177,7 +181,7 @@ def fetch_bus_directions(dep_coord: tuple, dest_coord: tuple) -> list:
     """
     url = "https://apis.openapi.sk.com/transit/routes/"
 
-    now = datetime.now()
+    now = datetime.now()+timedelta(minutes=5)
     search_dttm = now.strftime("%Y%m%d%H%M")  # 현재 시각을 'YYYYMMDDHHMM' 형식으로
 
     payload = {
@@ -229,10 +233,10 @@ def fetch_realtime_bus_info(node_id: str, route_id: str) -> list:
              ...
            ]
     """
-    API_URL = "http://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList"
+    API_URL = "http://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoSpcifyRouteBusArvlPrearngeInfoList"
 
     params = {
-        'serviceKey' : os.getenv("DATA_GO_KEY"), 
+        'serviceKey': os.getenv("DATA_GO_KEY"), 
         'pageNo': '1', 
         'numOfRows': '10', 
         '_type': 'json', 
@@ -246,22 +250,27 @@ def fetch_realtime_bus_info(node_id: str, route_id: str) -> list:
         response.raise_for_status()
         data = response.json()
 
-        if data.get("response", {}).get("header", {}).get("resultCode") != "00":
-            print("❌ API 응답 오류:", data)
+        header = data.get("response", {}).get("header", {})
+        if header.get("resultCode") != "00":
+            print("❌ API 응답 오류:", header)
             return []
 
-        items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
-        if not items:
-            print("❌ 해당 노선의 버스 정보가 없습니다.")
-            return []
+        item_data = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+
+        # 단일 객체인 경우 리스트로 감쌈
+        if isinstance(item_data, dict):
+            item_data = [item_data]
 
         result = []
-        for item in items:
+        for item in item_data:
+            seconds = item.get("arrtime", 0)
+            minutes, secs = divmod(seconds, 60)
+
             result.append({
                 "routeno": str(item.get("routeno")),
                 "nodenm": item.get("nodenm"),
                 "arrprevstationcnt": item.get("arrprevstationcnt"),
-                "arrtime": item.get("arrtime")
+                "arrtime": f"{minutes}분 {secs}초"
             })
 
         return result
@@ -269,4 +278,51 @@ def fetch_realtime_bus_info(node_id: str, route_id: str) -> list:
     except Exception as e:
         print(f"❌ 실시간 버스 정보 조회 실패: {e}")
         return []
+    
 
+
+def fetch_realtime_node_info(node_id: str) -> list:
+    API_URL = "http://apis.data.go.kr/1613000/ArvlInfoInqireService/getSttnAcctoArvlPrearngeInfoList"
+
+    params = {
+        'serviceKey': os.getenv("DATA_GO_KEY"), 
+        'pageNo': '1', 
+        'numOfRows': '10', 
+        '_type': 'json', 
+        'cityCode': '33010', 
+        'nodeId': node_id
+    }
+
+    try:
+        response = requests.get(API_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        header = data.get("response", {}).get("header", {})
+        if header.get("resultCode") != "00":
+            print("❌ API 응답 오류:", header)
+            return []
+
+        item_data = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+
+        # 단일 객체인 경우 리스트로 감쌈
+        if isinstance(item_data, dict):
+            item_data = [item_data]
+
+        result = []
+        for item in item_data:
+            seconds = item.get("arrtime", 0)
+            minutes, secs = divmod(seconds, 60)
+
+            result.append({
+                "routeno": str(item.get("routeno")),
+                "nodenm": item.get("nodenm"),
+                "arrprevstationcnt": item.get("arrprevstationcnt"),
+                "arrtime": f"{minutes}분 {secs}초"
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"❌ 실시간 버스 정보 조회 실패: {e}")
+        return []

@@ -8,9 +8,9 @@ app = FastAPI(title="Gashu Server API")
 
 class Message(BaseModel):
     user_id: str = '0001'
-    user_message: Optional[str] = ''
-    user_lon: Optional[float] = 127.43168
-    user_lat: Optional[float] = 36.62544
+    user_message: str = ''
+    user_lon: str = '127.43168'
+    user_lat: str = '36.62544'
 
 @app.post("/init")
 def initialize_user(msg: Message):
@@ -20,7 +20,8 @@ def initialize_user(msg: Message):
 
 @app.post("/message")
 def handle_message(msg: Message):
-    return {}
+    from app.handlers.message import processing_message
+    return processing_message(msg.user_id, msg.user_message, msg.user_lon, msg.user_lat)
 
 @app.post("/test/function")
 def test_endpoint(msg: Message):
