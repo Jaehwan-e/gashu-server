@@ -55,6 +55,8 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
 
         request_type = result.get("request_type")
         dest = result.get("dest", None)
+        if not dest or dest == "null":
+            return {"message": "목적지를 포함해서 요청해 주세요."}
         searched_dest = search_address_by_keyword(dest)
         if not searched_dest:
             return {"message": "죄송해요, 말씀하신 목적지를 찾을 수 없어요. 다시 시도해주세요."}
@@ -169,7 +171,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
                 {"role": "user", "content": general_bus_info_prompt}
             ]
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o",
                 messages=messages,
                 temperature=0.0,
             )
