@@ -60,6 +60,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
             return {"message": "죄송해요, 말씀하신 목적지를 찾을 수 없어요. 다시 시도해주세요."}
         dep_coord = (user_lon, user_lat)
         dest_coord = (searched_dest[0].get("lon"), searched_dest[0].get("lat"))
+        dest_name = searched_dest[0].get("name")
         bus_no = result.get("bus_no", None)
 
         if request_type == "specific_bus_info":
@@ -112,11 +113,11 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
 다음 실시간 버스 정보를 분석해 사용자가 요청한 버스 노선정보가 존재한다면 is_exist를 true로 설정하고, 다음과 같은 형식의 message를 생성해줘. 
 사용자가 요청한 버스 노선정보가 존재하지 않는다면 is_exist를 false로 설정해.
 
-예시 message: "<nodenm> 정류장에 <bus_no>번 버스가 <arrival_time> 뒤에 도착해요. <arrprevstationcnt> 정거장 남았어요."
+예시 message: "<dest_name>에 가는 <bus_no>번 버스가 <nodenm> 정류장에 <arrival_time> 뒤에 도착해요. <arrprevstationcnt> 정거장 남았어요."
 
 실시간 버스 정보: {realtime_node_info}
-
 사용자 요청 노선 번호: {bus_no}
+목적지 이름: {dest_name}
 
 반환 형식은 반드시 다음과 같은 JSON만 포함해야 하고, 문자열이 아닌 JSON 객체 자체로 시작하고 끝나야 해.
 아래 JSON 형식 외의 **어떠한 설명, 주석, 코드블럭(예: ```)도 포함하지 마.** 반드시 JSON 객체로 시작하고 끝나야 해.
