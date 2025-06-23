@@ -153,7 +153,7 @@ def processing_message(user_id: str, user_message: str, user_lon: str, user_lat:
                 message = f"죄송해요, {searched_dest[0].get('name')}에 가는 경로를 찾을 수 없어요. 다시 시도해주세요."
                 return {"message": message}
             general_bus_info_prompt = f"""
-다음 경로 정보를 간략한 대화 형식의 안내하는 메시지를 줄바꿈 없이 한 줄로 생성해줘.
+다음 경로 정보를 간략한 대화 형식의 안내하는 메시지를 줄바꿈 없이, 값이 0인 정보는 제외하고 안내하며, 특수문자 사용 없이 한 줄로 생성해줘.
 경로 정보: {directions[0]}
 
 반환 형식은 반드시 다음과 같은 JSON만 포함해야 하고, 문자열이 아닌 JSON 객체 자체로 시작하고 끝나야 해.
