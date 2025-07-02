@@ -7,6 +7,8 @@
 
 ---
 ## 🔗 프로젝트 링크
+🗂️ [프론트레포](https://github.com/gashu-android-app/gashu-app-android.git)
+🗂️ [백앤드레포](https://github.com/gashu-android-app/gashu-backend.git)
 📒 [팀 노션](https://www.notion.so/1f1800c9877b8000a4e9fc894388a939?source=copy_link)
 
 ---
